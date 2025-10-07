@@ -13,6 +13,7 @@ import (
 	"github.com/b1tnic/techsearch-backend/apiclient"
 	"github.com/b1tnic/techsearch-backend/article"
 	"github.com/b1tnic/techsearch-backend/requestpayload"
+	"github.com/b1tnic/techsearch-backend/response"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -56,8 +57,8 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 	}
 
 	// Bedrockクライアントを作成
-	bedrockClient := apiclient.NewMyBedrockClient(cfg, os.Getenv("KNOWLEDGEBASE_ID"))
-	result, err := bedrockClient.RetrieveFromKnowledgeBase(context.TODO(), payload.Query, 30)
+	bedrockClient := apiclient.NewMyBedrockClient(cfg, os.Getenv("KNOWLEDGEBASE_ID"), "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-lite-v1:0")
+	result, output, err := bedrockClient.RetrieveFromKnowledgeBase(context.TODO(), payload.Query, 30)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -85,7 +86,12 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 		articles[i] = resultRecord
 	}
 
-	jsonArticles, err := json.Marshal(articles)
+	resp := response.Response{
+		Output:   output,
+		Articles: articles,
+	}
+
+	jsonResponse, err := json.Marshal(resp)
 	if err != nil {
 		log.Fatalf("jsonに変換できませんでした。")
 		// 失敗レスポンスを返す
@@ -100,7 +106,7 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 		Headers: map[string]string{
 			"Content-Type": "application/json",
 		},
-		Body: string(jsonArticles),
+		Body: string(jsonResponse),
 	}, nil
 }
 

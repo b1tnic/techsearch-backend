@@ -13,6 +13,7 @@ import (
 
 type MyBedrockClient struct {
 	KnowledgeBaseID string
+	ModelArn        string
 	client          *bedrockagentruntime.Client
 }
 
@@ -24,13 +25,14 @@ type KnowledgeBaseResult struct {
 }
 
 /** MyBedrockClientを作成、返却するメソッド
- *  @params AWSコンフィグ、ナレッジベースID
+ *  @params AWSコンフィグ、ナレッジベースID、使用するモデルARN
  *  @return MyBedrockClient
  */
-func NewMyBedrockClient(cfg aws.Config, knowledgeBaseID string) *MyBedrockClient {
+func NewMyBedrockClient(cfg aws.Config, knowledgeBaseID string, modelArn string) *MyBedrockClient {
 	client := bedrockagentruntime.NewFromConfig(cfg)
 	return &MyBedrockClient{
 		KnowledgeBaseID: knowledgeBaseID,
+		ModelArn:        modelArn,
 		client:          client,
 	}
 }
@@ -39,33 +41,30 @@ func NewMyBedrockClient(cfg aws.Config, knowledgeBaseID string) *MyBedrockClient
  *  @params コンテキスト、クエリ、最大取得数
  *  @return 検索結果
  */
-func (bc *MyBedrockClient) RetrieveFromKnowledgeBase(ctx context.Context, query string, maxResults int32) ([]KnowledgeBaseResult, error) {
-	input := &bedrockagentruntime.RetrieveInput{
-		KnowledgeBaseId: aws.String(bc.KnowledgeBaseID),
-		RetrievalQuery: &types.KnowledgeBaseQuery{
-			Text: aws.String(query),
+func (bc *MyBedrockClient) RetrieveFromKnowledgeBase(ctx context.Context, query string, maxResults int32) ([]types.RetrievedReference, string, error) {
+	input := &bedrockagentruntime.RetrieveAndGenerateInput{
+		Input: &types.RetrieveAndGenerateInput{
+			Text: &query,
 		},
-		RetrievalConfiguration: &types.KnowledgeBaseRetrievalConfiguration{
-			VectorSearchConfiguration: &types.KnowledgeBaseVectorSearchConfiguration{
-				NumberOfResults: aws.Int32(maxResults),
+		RetrieveAndGenerateConfiguration: &types.RetrieveAndGenerateConfiguration{
+			Type: types.RetrieveAndGenerateTypeKnowledgeBase,
+			KnowledgeBaseConfiguration: &types.KnowledgeBaseRetrieveAndGenerateConfiguration{
+				KnowledgeBaseId: &bc.KnowledgeBaseID,
+				ModelArn:        &bc.ModelArn,
 			},
 		},
 	}
 
-	resp, err := bc.client.Retrieve(ctx, input)
+	resp, err := bc.client.RetrieveAndGenerate(ctx, input)
 	if err != nil {
 		log.Printf("ナレッジベースID:%w、クエリ:%w", bc.KnowledgeBaseID, query)
-		return nil, fmt.Errorf("Knowledge Baseからの取得に失敗。入力:%w、コンテキスト: %w、エラー内容:%w", input, ctx, err)
+		return nil, "", fmt.Errorf("Knowledge Baseからの取得に失敗。入力:%w、コンテキスト: %w、エラー内容:%w", input, ctx, err)
 	}
 
-	var results []KnowledgeBaseResult
-	for _, result := range resp.RetrievalResults {
-		results = append(results, KnowledgeBaseResult{
-			Content:  aws.ToString(result.Content.Text),
-			Score:    aws.ToFloat64(result.Score),
-			Metadata: result.Metadata,
-		})
+	var results []types.RetrievedReference
+	for _, citation := range resp.Citations {
+		results = append(results, citation.RetrievedReferences...)
 	}
 
-	return results, nil
+	return results, *resp.Output.Text, nil
 }

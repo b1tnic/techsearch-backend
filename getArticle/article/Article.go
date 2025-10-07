@@ -9,4 +9,5 @@ type Article struct {
 	UpdatedAt   string
 	CreatedAt   string
 	Platform    string
+	Url         string
 }
