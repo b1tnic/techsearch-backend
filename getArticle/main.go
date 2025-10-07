@@ -50,7 +50,6 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 	err = json.Unmarshal([]byte(request.Body), &payload)
 	if err != nil {
 		log.Fatalf("リクエストボディをマッピングできませんでした。エラー内容：%w", err)
-		// 失敗レスポンスを返す
 		return events.APIGatewayProxyResponse{
 			StatusCode: 500,
 		}, err
@@ -58,6 +57,7 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 
 	// Bedrockクライアントを作成
 	bedrockClient := apiclient.NewMyBedrockClient(cfg, os.Getenv("KNOWLEDGEBASE_ID"), "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-lite-v1:0")
+	// ナレッジベースから検索
 	result, output, err := bedrockClient.RetrieveFromKnowledgeBase(context.TODO(), payload.Query, 30)
 	if err != nil {
 		log.Fatal(err)
@@ -72,13 +72,14 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 
 	// DynamoDBからIDを基に記事を取得
 	for i, result := range result {
+		// ナレッジベースのメタデータから情報元となったファイル名を取得
 		articleIDReturnedByBedrock := getArticleID(fmt.Sprint(result.Metadata["x-amz-bedrock-kb-source-uri"]))
+		// ファイル名の形式が、"/{ID}.md"なので、接頭辞の"/"と接尾辞の".md"を削除
 		articleIDWithoutSuffix := strings.TrimSuffix(articleIDReturnedByBedrock, ".md")
 		articleID := strings.TrimPrefix(articleIDWithoutSuffix, "/")
 		resultRecord, err := dynamoDBClient.GetItemByPartitionKey(dynamoDBClient.Client, articleID, "Qiita")
 		if err != nil {
 			log.Fatalf("DynamoDBからレコードが取得できませんでした。エラー内容：%v", err)
-			// 失敗レスポンスを返す
 			return events.APIGatewayProxyResponse{
 				StatusCode: 500,
 			}, err
@@ -94,13 +95,11 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 	jsonResponse, err := json.Marshal(resp)
 	if err != nil {
 		log.Fatalf("jsonに変換できませんでした。")
-		// 失敗レスポンスを返す
 		return events.APIGatewayProxyResponse{
 			StatusCode: 500,
 		}, err
 	}
 
-	// 成功レスポンスを返す
 	return events.APIGatewayProxyResponse{
 		StatusCode: 200,
 		Headers: map[string]string{

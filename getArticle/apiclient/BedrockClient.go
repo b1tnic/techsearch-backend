@@ -17,7 +17,6 @@ type MyBedrockClient struct {
 	client          *bedrockagentruntime.Client
 }
 
-// 構造体定義
 type KnowledgeBaseResult struct {
 	Content  string
 	Score    float64

@@ -24,6 +24,8 @@ type ItemKey struct {
 }
 
 /** MyDynamoDBClientを作成し、返却する
+ *  @params AWSコンフィグ、テーブル名
+ *  @return MyDynamoDBClient
  */
 func NewMyDynamoDBClient(cfg aws.Config, tableName string) *MyDynamoDBClient {
 	client := dynamodb.NewFromConfig(cfg)
@@ -33,6 +35,10 @@ func NewMyDynamoDBClient(cfg aws.Config, tableName string) *MyDynamoDBClient {
 	}
 }
 
+/** パーティションキーを基にレコードを返却するメソッド
+ *  @params DynamoDBクライアント、検索対象のパーティションキーの値、記事取得元プラットフォーム名
+ *  @return 記事、エラー
+ */
 func (dc *MyDynamoDBClient) GetItemByPartitionKey(client *dynamodb.Client, partitionKeyValue string, platForm string) (article.Article, error) {
 
 	itemKey := ItemKey{
@@ -63,7 +69,8 @@ func (dc *MyDynamoDBClient) GetItemByPartitionKey(client *dynamodb.Client, parti
 }
 
 /**
- * 当日のアクセス数を取得
+ * DynamoDBで管理している、当日のアクセス数を更新するメソッド
+ * @return アクセス回数
  */
 func (myClient MyDynamoDBClient) UpdateDailyCounter() int {
 	today := time.Now().UTC().Format("2006-01-02")
