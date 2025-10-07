@@ -1,0 +1,4 @@
+techsearch-backend.yaml
+*.zip
+*.env*
+bootstrap
