@@ -1,4 +1,4 @@
-# Qiita記事に自然言語ができるWebアプリ[techsearch](https://techserch.net/)のバックエンドのソースレポジトリ
+# Qiita記事に自然言語ができるWebアプリ[techsearch](https://techserch.net/)のバックエンドのソースレポジトリ(現在、Qiitaサポートチームに問い合わせ中の為公開を停止しております)
 
 ## 概要
 Lambdaで実行され、API Gatewayからクエリ文言を受け取りBedrockで検索、IDで紐づいたレコードをDynamoDBから取得し返却している
