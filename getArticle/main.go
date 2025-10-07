@@ -1,18 +1,10 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
-	"log"
-	"os"
 	"regexp"
-	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/b1tnic/techsearch-backend/apiclient"
 	"github.com/b1tnic/techsearch-backend/article"
-	"github.com/b1tnic/techsearch-backend/requestpayload"
 	"github.com/b1tnic/techsearch-backend/response"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -25,66 +17,25 @@ func main() {
 }
 
 func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	// AWSコンフィグの作成
-	cfg, err := config.LoadDefaultConfig(context.Background())
-	if err != nil {
-		log.Fatal(err)
+
+	output := "これはダミーデータです。これはダミーデータです。これはダミーデータです。これはダミーデータです。これはダミーデータです。"
+
+	dummyArticle := article.Article{
+		ID:          "hogehoge",
+		Title:       "これはダミーデータです。",
+		Body:        "## これはダミーデータです。",
+		LikesCount:  123,
+		StocksCount: 456,
+		UpdatedAt:   "2025-09-20",
+		CreatedAt:   "2025-09-20",
+		Platform:    "Qiita",
+		Url:         "https://qiita.com/b1t/items/0d83984f79a377dfa924",
 	}
 
-	// 一日当たりのアクセス数を宣言
-	const DAILY_LIMIT = 10000
-
-	// アクセス数を取得
-	dynamoDBClientCounter := apiclient.NewMyDynamoDBClient(cfg, os.Getenv("DYNAMODB_TABLENAME_DAILY_COUNTER"))
-	log.Printf("テーブル名：%w", os.Getenv("DYNAMODB_TABLENAME_DAILY_COUNTER"))
-	dailyCount := dynamoDBClientCounter.UpdateDailyCounter()
-	// 更新に失敗するか、10000回を超えた場合はアクセスを制限する
-	if dailyCount < 0 || DAILY_LIMIT < dailyCount {
-		return events.APIGatewayProxyResponse{
-			StatusCode: 500,
-		}, fmt.Errorf("アクセス回数が超過しております。")
-	}
-
-	// 受け取ったリクエストボディから検索文言を取得
-	var payload requestpayload.RequestPayload
-	err = json.Unmarshal([]byte(request.Body), &payload)
-	if err != nil {
-		log.Fatalf("リクエストボディをマッピングできませんでした。エラー内容：%w", err)
-		return events.APIGatewayProxyResponse{
-			StatusCode: 500,
-		}, err
-	}
-
-	// Bedrockクライアントを作成
-	bedrockClient := apiclient.NewMyBedrockClient(cfg, os.Getenv("KNOWLEDGEBASE_ID"), "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-lite-v1:0")
-	// ナレッジベースから検索
-	result, output, err := bedrockClient.RetrieveFromKnowledgeBase(context.TODO(), payload.Query, 30)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Printf("Bedrockの検索結果:%w", result)
-
-	// DynamoDBクライアントを作成
-	dynamoDBClient := apiclient.NewMyDynamoDBClient(cfg, os.Getenv("DYNAMODB_TABLENAME"))
-
-	articles := make([]article.Article, len(result))
-
-	// DynamoDBからIDを基に記事を取得
-	for i, result := range result {
-		// ナレッジベースのメタデータから情報元となったファイル名を取得
-		articleIDReturnedByBedrock := getArticleID(fmt.Sprint(result.Metadata["x-amz-bedrock-kb-source-uri"]))
-		// ファイル名の形式が、"/{ID}.md"なので、接頭辞の"/"と接尾辞の".md"を削除
-		articleIDWithoutSuffix := strings.TrimSuffix(articleIDReturnedByBedrock, ".md")
-		articleID := strings.TrimPrefix(articleIDWithoutSuffix, "/")
-		resultRecord, err := dynamoDBClient.GetItemByPartitionKey(dynamoDBClient.Client, articleID, "Qiita")
-		if err != nil {
-			log.Fatalf("DynamoDBからレコードが取得できませんでした。エラー内容：%v", err)
-			return events.APIGatewayProxyResponse{
-				StatusCode: 500,
-			}, err
-		}
-		articles[i] = resultRecord
+	// 複製して配列に格納
+	articles := make([]article.Article, 5)
+	for i := 0; i < 5; i++ {
+		articles = append(articles, dummyArticle)
 	}
 
 	resp := response.Response{
@@ -92,13 +43,7 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 		Articles: articles,
 	}
 
-	jsonResponse, err := json.Marshal(resp)
-	if err != nil {
-		log.Fatalf("jsonに変換できませんでした。")
-		return events.APIGatewayProxyResponse{
-			StatusCode: 500,
-		}, err
-	}
+	jsonResponse, _ := json.Marshal(resp)
 
 	return events.APIGatewayProxyResponse{
 		StatusCode: 200,
