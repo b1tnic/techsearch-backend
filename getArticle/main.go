@@ -35,7 +35,7 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 	// 複製して配列に格納
 	articles := make([]article.Article, 5)
 	for i := 0; i < 5; i++ {
-		articles = append(articles, dummyArticle)
+		articles[i] = dummyArticle
 	}
 
 	resp := response.Response{
